@@ -15,6 +15,7 @@ This project involves a comprehensive analysis of the NYC flights dataset, sourc
 9. [Statistical Test](#statistical-test)
 10. [Regression Model](#regression-model)
 11. [Data Presentation](#data-presentation)
+12. [Conclusion](#conclusion)
 
 ## Data Loading and Exploration
 
@@ -70,6 +71,32 @@ This project involves a comprehensive analysis of the NYC flights dataset, sourc
 ## Data Presentation
 
 - **Report**: The findings are summarized in a report using R Markdown. The report includes visualizations and interpretations of the results.
+
+## Conclusion
+
+- **Coefficients**: The coefficients of the predictors in the model are as follows:
+  - Intercept: -13.464797
+  - Distance: 0.002866
+  - Air_time: -0.025867
+  - Hour: 2.153145
+  - Month: -0.202686
+  
+  These coefficients represent the estimated effect of each predictor variable on the dependent variable (dep_delay). For example, for every one-unit increase in distance, dep_delay is expected to increase by approximately 0.002866 units, holding other variables constant.
+
+- **R-squared**: The R-squared value is 0.06438, which indicates that approximately 6.44% of the variance in dep_delay is explained by the predictors included in the model.
+
+- **Mean Absolute Error (MAE)**: The Mean Absolute Error (MAE) is 21.6533. This represents the average absolute difference between the observed dep_delay values and the predicted values by the model.
+
+- **Mean Squared Error (MSE)**: The Mean Squared Error (MSE) is 1581.8262. This represents the average of the squares of the errors, indicating the average squared difference between the observed dep_delay values and the predicted values by the model.
+
+Based on this information:
+- The coefficients provide insight into how each independent variable influences the dependent variable.
+- The R-squared value indicates that the regression model explains a small proportion of the variance in dep_delay.
+- The MAE and MSE provide measures of the regression model’s accuracy in predicting dep_delay.
+
+Overall, the model has limited explanatory power and predictive accuracy, as indicated by the low R-squared value and the relatively high MAE and MSE. Further improvement of the model may be needed to better understand and predict dep_delay.
+
+
 
 ## How to Run the Analysis
 
