@@ -1,0 +1,228 @@
+---
+title: "nyc flight data exploration ,time series and regression model"
+author: "Aritra Banerjee"
+date: "2024-03-28"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+``
+**installing important libraries**
+```{r warning=FALSE,massage=FALSE}
+library(reshape2)
+library(tidyverse)
+library(ggplot2)
+library(GGally)
+library(caret)
+library(dplyr)
+library(forecast)
+```
+**DATA LOADING AND EXPLORATION**
+```{r warning=FALSE,massage=FALSE,results='hide',include=FALSE}
+flights<-read.csv("nycflights.csv")
+#exploring the dataset
+head(flights)
+summary(flights)
+names(flights)
+glimpse(flights)
+```
+**DATA CLEANING**
+```{r warning=FALSE,massage=FALSE,results='hide',include=FALSE}
+#Checking for na values
+sum(is.na(flights))
+#removing na values
+flights<-na.omit(flights)
+
+```
+ **EXPLORATORY DATA ANALYSIS**
+```{r echo=FALSE,warning=FALSE,massage=FALSE,results='hide'}
+#creating data frame
+data <- data.frame(
+  DepartureDelay = flights$dep_delay,
+  ArrivalDelay = flights$arr_delay,
+  FlightDistance = flights$distance
+)
+
+
+#HISTOGRAM PLOT
+ggplot(data, aes(x = DepartureDelay)) +
+  geom_histogram(binwidth = 10, fill = "skyblue", color = "black") +
+  labs(title = "Distribution of Departure Delays", x = "Departure Delay (minutes)", y = "Frequency") 
+
+ggplot(data, aes(x = ArrivalDelay)) +
+  geom_histogram(binwidth = 10, fill = "skyblue", color = "black") +
+  labs(title = "Distribution of Arrival Delays", x = "Arrival Delay (minutes)", y = "Frequency") 
+
+ggplot(data, aes(x = FlightDistance)) +
+  geom_histogram(binwidth = 50, fill = "skyblue", color = "black") +
+  labs(title = "Distribution of Flight Distances", x = "Flight Distance (miles)", y = "Frequency") 
+
+#UNDERSTANDING DATA USING BOXPLOT
+ggplot(flights,aes(x=factor(month), y=dep_delay))+geom_boxplot()+labs(x="months",y="departure delay")
+
+#SUMMARIZING MORE FACTORS
+
+flights %>%
+  select(dep_delay) %>%
+  summary()
+
+flights %>% 
+  group_by(month) %>% 
+  summarise(mean_dd=mean(dep_delay)) %>% 
+  arrange(desc(mean_dd))
+
+
+flights %>% 
+  group_by(month) %>% 
+  summarise(median_dd=median(dep_delay)) %>% 
+  arrange(desc(median_dd))
+
+
+
+#flight delay rate
+flights<-flights %>% 
+  mutate(arrival_type=ifelse(arr_delay<=0,"ON TIME","DELAYED"))
+flights<-flights %>% 
+  mutate(departure_type=ifelse(dep_delay<=0,"ON TIME","DELAYED"))
+
+flights %>% select(departure_type,arrival_type) %>% table
+#proportion of flight on time arrival
+(3508/(9291+3508))*100
+
+#flight delay visualization
+flights<-flights %>% 
+  mutate(dept_type=ifelse(dep_delay<5,"ON TIME","DELAYED"))
+
+flights %>% 
+  group_by(origin) %>% 
+  summarise(on_time_dept_rate=sum(dept_type=="ON TIME")/n()) %>% 
+  arrange(desc(on_time_dept_rate))
+
+ggplot(data=flights,aes(x=origin,fill=dept_type))+geom_bar()
+
+#SPEED ANALYSIS
+flights<-flights %>% mutate(avg_speed=distance/(air_time/60))
+speed_data<-flights %>% select(avg_speed,tailnum) %>% filter(avg_speed == max(avg_speed)) 
+ggplot(flights,aes(x=distance,y=avg_speed))+geom_point()
+
+
+
+```
+
+CONCLUSION:- The distribution of departure delays of all flights is right skewed signifying the data to be unimodal. Also, right skewness is proved by the summary obtained in which mean > median of the departure delay distribution.
+July in which there is highest average departure delay of flights from NYC airport.
+LGA  is one of the three major NYC airports that has a better on time percentage for departing flights.
+Plane with tail number N666DN having the highest average speed.
+27.40% of the flights arrived on time though departed late.
+
+**CORRELATIONAL ANALYSIS**
+```{r  }
+corrlation_matrix<-cor(select(flights,dep_delay,arr_delay,distance))
+corrlation_matrix
+## Visualize the correlation matrix as a heatmap
+ggplot(melt(corrlation_matrix), aes(Var1, Var2, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "yellow", midpoint = 0,
+                       limit = c(-1,1), space = "Lab", name="Correlation") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, size = 10, hjust = 1)) +
+  coord_fixed()
+
+#FINDING CORRELATION VIUALIZATION
+ggpairs(data)
+```
+CONCLUSION:- From the correlation matrix we can conclude that Arrival delay and departure delay has a high positive corelation
+distance and departure delay has low negative correlation and so for arrival delay.
+
+**CATEGORICAL VARIBALBE ANALYSIS**
+```{r }
+flights_dataframe<- data.frame(
+  Airline = flights$carrier,
+  Destination = flights$dest,
+  Departure_Delay =flights$dep_delay)
+
+average_delays <- flights_dataframe %>%
+  group_by(Airline, Destination) %>%
+  summarise(Avg_Delay = mean(Departure_Delay))
+
+average_delays<- melt(average_delays, id.vars = c("Airline", "Destination"))
+#VISUALI
+ggplot(average_delays, aes(x = Destination, y = Airline, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(low = "lightblue", high = "darkblue") +
+  labs(title = "Average Departure Delay Across Airlines and Destinations",
+       x = "Destination",
+       y = "Airline",
+       fill = "Average Departure Delay") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  coord_fixed(ratio=4,expand=T) 
+
+
+```
+conclusion:-From the plot we can clearly see that the airline UA has max average arrival delay.
+**TIME SERIES ANALYSIS**
+```{r }
+#TIME SERIES ANALYSIS
+#by month
+monthly_delays <- flights %>%
+  group_by(month) %>%
+  summarize(avg_delay = mean(dep_delay))
+#weekly
+flights$day_of_week <- weekdays(as.Date(paste(flights$year, flights$month, flights$day, sep = "-")))
+weekly_delays <- flights %>%
+  group_by(day_of_week) %>%
+  summarise(avg_delay = mean(dep_delay, na.rm = TRUE))
+
+#BY DAY
+daily_delays <- flights %>%
+  group_by(day) %>%
+  summarize(avg_delay = mean(dep_delay))
+#weekly delay trend
+ggplot(weekly_delays, aes(x = reorder(day_of_week, avg_delay), y = avg_delay)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Average Departure Delay by Day of the Week",
+       x = "Day of the Week",
+       y = "Average Departure Delay (minutes)")
+# Monthly Delay Trend
+ggplot(monthly_delays, aes(x = month, y = avg_delay)) +
+  geom_line(colour="red") +
+  labs(title = "Average Departure Delay by Month", x = "Month", y = "Average Delay (minutes)")
+
+# Daily Delay Trend
+ggplot(daily_delays, aes(x = day, y = avg_delay)) +
+  geom_line(color="blue") +
+  labs(title = "Average Departure Delay by Day", x = "Day", y = "Average Delay (minutes)")
+
+
+```
+**AIRPORT ANALYSIS**
+```{r  }
+#flight delay 
+flights<-flights %>% 
+  mutate(dept_type=ifelse(dep_delay<5,"ON TIME","DELAYED"))
+
+#Origin Wise Delay 
+flights %>% 
+  group_by(origin) %>% 
+  summarise(on_time_dept_rate=sum(dept_type=="ON TIME")/n()) %>% 
+  arrange(desc(on_time_dept_rate))
+#visualizing the delay of diff airport
+ggplot(data=flights,aes(x=origin,fill=dept_type))+geom_bar()
+```
+conclusion:-From the plot we can visualize that EWR has the maximum departure delay and LGA has the minimun departure delay
+** STATISTICAL TEST**
+```{r}
+#two sample test
+JFK_delay<-flights %>% filter(origin=="JFK") %>% select(arr_delay)
+JFK_delay
+LGA_delay<-flights %>% filter(origin=="LGA") %>% select(arr_delay)
+LGA_delay
+t_test<-t.test(JFK_delay,LGA_delay)
+t_test
+
+```
+
